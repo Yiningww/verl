@@ -154,9 +154,11 @@ class RLHFDataset(Dataset):
 
                 def doc2len(doc) -> int:
                     messages = self._build_messages(doc)
-                    raw_prompt = self.processor.apply_chat_template(
-                        messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
-                    )
+                    # raw_prompt = self.processor.apply_chat_template(
+                    #     messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+                    # )
+                    raw_prompt = messages[0]['content']
+
                     images = [process_image(image) for image in doc[image_key]] if image_key in doc else None
                     videos = [process_video(video) for video in doc[video_key]] if video_key in doc else None
 
@@ -165,11 +167,12 @@ class RLHFDataset(Dataset):
             else:
 
                 def doc2len(doc) -> int:
-                    return len(
-                        tokenizer.apply_chat_template(
-                            doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
-                        )
-                    )
+                    # return len(
+                    #     tokenizer.apply_chat_template(
+                    #         doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
+                    #     )
+                    # )
+                    return len(doc[prompt_key][0]['content'])
 
             dataframe = dataframe.filter(
                 lambda doc: doc2len(doc) <= self.max_prompt_length,
@@ -224,9 +227,10 @@ class RLHFDataset(Dataset):
         if self.processor is not None:
             from verl.utils.dataset.vision_utils import process_image, process_video
 
-            raw_prompt = self.processor.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
-            )
+            # raw_prompt = self.processor.apply_chat_template(
+            #     messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+            # )
+            raw_prompt = messages[0]['content']
             multi_modal_data = {}
 
             images = None
@@ -265,9 +269,11 @@ class RLHFDataset(Dataset):
                 row_dict["multi_modal_inputs"].pop("second_per_grid_ts", None)
 
         else:
-            raw_prompt = self.tokenizer.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
-            )
+            # raw_prompt = self.tokenizer.apply_chat_template(
+            #     messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+            # )
+            raw_prompt = messages[0]['content']
+
             model_inputs = self.tokenizer(raw_prompt, return_tensors="pt", add_special_tokens=False)
             input_ids = model_inputs.pop("input_ids")
             attention_mask = model_inputs.pop("attention_mask")
