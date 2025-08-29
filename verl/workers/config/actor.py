@@ -133,6 +133,8 @@ class ActorConfig(BaseConfig):
             "seq-mean-token-sum",
             "seq-mean-token-mean",
             "seq-mean-token-sum-norm",
+            "yining-weighted",
+            "yining-weighted2"
         ]
         if self.loss_agg_mode not in valid_loss_agg_modes:
             raise ValueError(f"Invalid loss_agg_mode: {self.loss_agg_mode}")
