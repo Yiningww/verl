@@ -2,20 +2,19 @@
 # It outperforms the Qwen2 7B base model by two percentage points on the test set of GSM8K.
 
 set -x
-
-python3 -m verl.trainer.main_ppo \
+CUDA_VISIBLE_DEVICES=0,1,2,3 MASTER_PORT=29673 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=/root/paddlejob/workspace/env_run/jinman/verl/data/simplerl/train.parquet \
     data.val_files=/root/paddlejob/workspace/env_run/jinman/verl/data/simplerl/test.parquet \
-    data.train_batch_size=256 \
-    data.max_prompt_length=512 \
-    data.max_response_length=1024 \
+    data.train_batch_size=1024 \
+    data.max_prompt_length=1024 \
+    data.max_response_length=2048 \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     actor_rollout_ref.model.path=Qwen/Qwen2.5-1.5B-instruct \
     actor_rollout_ref.actor.optim.lr=5e-7 \
     actor_rollout_ref.model.use_remove_padding=True \
-    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=256 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.0001 \
@@ -35,10 +34,10 @@ python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='yn-iclr-qwen2.5_1.5b_instruct' \
-    trainer.experiment_name='grpo' \
+    trainer.experiment_name='yn-weighted2' \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.save_freq=20 \
     trainer.test_freq=5 \
     trainer.total_epochs=20 \
-    custom_reward_function.path=/root/paddlejob/workspace/env_run/jinman/verl/verl/utils/reward_score/math_verify.py 
+    custom_reward_function.path=/root/paddlejob/workspace/env_run/jinman/verl/verl/utils/reward_score/simplelr_math.py
