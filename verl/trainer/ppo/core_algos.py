@@ -730,6 +730,13 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         # throughout training to well-replicate the DrGRPO paper.
         # TODO: Perhaps add user-defined normalizer argument to
         # agg_loss to ensure divisor stays constant throughout.
+    elif loss_agg_mode == "yining-weighted":
+        seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / torch.sum(loss_mask)
+        loss = torch.mean(seq_losses)
+    elif loss_agg_mode == "yining-weighted2":
+        largest_value = loss_mask.sum(dim=1).max(dim=0).values.item()
+        seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / math.sqrt(largest_value)
+        loss = seq_losses
     else:
         raise ValueError(f"Invalid loss_agg_mode: {loss_agg_mode}")
 
