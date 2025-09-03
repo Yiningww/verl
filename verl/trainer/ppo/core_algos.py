@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 import torch
+import math
 from omegaconf import DictConfig
 
 import verl.utils.torch_functional as verl_F
@@ -731,12 +732,43 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         # TODO: Perhaps add user-defined normalizer argument to
         # agg_loss to ensure divisor stays constant throughout.
     elif loss_agg_mode == "yining-weighted":
+        # loss_mat: torch.tensor([[1,2,3,4,5], [5,4,3,2,1], [1,2,3,4,5]])
+        # loss_mask:torch.tensor([[1,1,0,0,0], [1,1,1,0,0], [1,1,1,1,1]]
+        # torch.sum(loss_mask, dim=-1): ([2,3,5])
+        # torch.sum(loss_mat * loss_mask, dim=-1): tensor([ 3, 12, 15])
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / torch.sum(loss_mask)
         loss = torch.mean(seq_losses)
     elif loss_agg_mode == "yining-weighted2":
-        largest_value = loss_mask.sum(dim=1).max(dim=0).values.item()
+        largest_value = torch.max(torch.sum(loss_mask, dim=-1))
+        # largest_value = loss_mask.sum(dim=1).max(dim=0).values.item()
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / math.sqrt(largest_value)
-        loss = seq_losses
+        loss = torch.sum(seq_losses)
+    elif loss_agg_mode == "yining-weighted3":
+        token_len_for_each_sample = loss_mask.sum(dim=-1).float()
+        mu = torch.mean(token_len_for_each_sample)
+        sigma = torch.std(token_len_for_each_sample)
+        reducer = 1/30
+        normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
+        new_loss_mat = loss_mat * loss_mask
+        normalized_loss_for_each_token = normalized * new_loss_mat.sum(dim=-1)
+        sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample) 
+        loss = torch.sum(normalized_loss_for_each_token) /sum_of_token_len_of_all_samples
+    elif loss_agg_mode == "yining-weighted4":
+        token_len_for_each_sample = loss_mask.sum(dim=-1).float()
+        mu = torch.mean(token_len_for_each_sample)
+        sigma = torch.std(token_len_for_each_sample)
+        reducer = 1/30
+        normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
+        new_loss_mat = loss_mat * loss_mask
+        lamda = 2
+        weighted = normalized.pow(lamda)
+        sample_size = loss_mask.shape[0]
+        f = torch.softmax(weighted, dim=0) * sample_size
+        final_loss_for_each_token = f * new_loss_mat.sum(dim=-1)
+        sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample)
+        loss = torch.sum(final_loss_for_each_token) /sum_of_token_len_of_all_samples
+
+        
     else:
         raise ValueError(f"Invalid loss_agg_mode: {loss_agg_mode}")
 
