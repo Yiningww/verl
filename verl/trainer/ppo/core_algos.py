@@ -753,6 +753,17 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         normalized_loss_for_each_token = normalized * new_loss_mat.sum(dim=-1)
         sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample) 
         loss = torch.sum(normalized_loss_for_each_token) /sum_of_token_len_of_all_samples
+    elif loss_agg_mode == "yining-weighted3-reducer-1-over-3":
+        token_len_for_each_sample = loss_mask.sum(dim=-1).float()
+        mu = torch.mean(token_len_for_each_sample)
+        sigma = torch.std(token_len_for_each_sample)
+        reducer = 1/3
+        normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
+        clipped_normalized = torch.clip(normalized, min=0.1)
+        new_loss_mat = loss_mat * loss_mask
+        clipped_normalized_loss_for_each_token = clipped_normalized * new_loss_mat.sum(dim=-1)
+        sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample) 
+        loss = torch.sum(clipped_normalized_loss_for_each_token) /sum_of_token_len_of_all_samples
     elif loss_agg_mode == "yining-weighted4":
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
