@@ -333,13 +333,17 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                     actor_module_class = AutoModelForCausalLM
                 else:
                     actor_module_class = AutoModel
-
+            # import pdb;pdb.set_trace()
             actor_module = actor_module_class.from_pretrained(
                 pretrained_model_name_or_path=local_path,
                 torch_dtype=torch_dtype,
                 config=actor_model_config,
                 trust_remote_code=trust_remote_code,
             )
+            # if role == "actor":
+            #     actor_module.register_parameter("lambda_yn", torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32), requires_grad=True))
+
+                
 
             # Apply Liger kernel to the model if use_liger is set to True
             if use_liger:
@@ -433,6 +437,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 use_orig_params=fsdp_config.get("use_orig_params", False),
                 forward_prefetch=fsdp_config.get("forward_prefetch", False),
             )
+
         elif fsdp_strategy == "fsdp2":
             assert CPUOffloadPolicy is not None, "PyTorch version >= 2.4 is required for using fully_shard API (FSDP2)"
             mp_policy = MixedPrecisionPolicy(
@@ -599,6 +604,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
 
         if self._is_actor or self._is_rollout:
             # we need the model for actor and rollout
+            # import pdb;pdb.set_trace()
             if self._is_actor:
                 optim_config = self.config.actor.optim
                 fsdp_config = omega_conf_to_dataclass(self.config.actor.fsdp_config)
@@ -654,7 +660,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
             ref_model = self.config.ref.get("model", None)
             if ref_model is not None:
                 ref_model_path = ref_model.get("path", self.config.model.path)
-
+            # import pdb;pdb.set_trace()
             if self.rank == 0:
                 print("reference model:", ref_model_path)
             local_path = copy_to_local(ref_model_path, use_shm=use_shm)
@@ -726,6 +732,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
             lr = self.actor_lr_scheduler.get_last_lr()[0]
             metrics["actor/lr"] = lr
             self.actor_lr_scheduler.step()
+            # import pdb;pdb.set_trace()
 
             # TODO: here, we should return all metrics
             output = DataProto(meta_info={"metrics": metrics})

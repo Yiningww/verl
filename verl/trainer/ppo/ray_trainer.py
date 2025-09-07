@@ -342,7 +342,11 @@ class RayPPOTrainer:
         self.processor = processor
         self.config = config
         self.reward_fn = reward_fn
+
         self.val_reward_fn = val_reward_fn
+        
+        
+
 
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
@@ -791,6 +795,9 @@ class RayPPOTrainer:
 
         self.resource_pool_to_cls = {pool: {} for pool in self.resource_pool_manager.resource_pool_dict.values()}
 
+        # self.device_name = device_name if device_name != None else self.config.trainer.device 
+        # self.lambda_yn = torch.nn.Parameter(torch.ones((), device="cuda", dtype=torch.float32))
+        
         # create actor and rollout
         if self.hybrid_engine:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
@@ -1092,7 +1099,7 @@ class RayPPOTrainer:
             else False
         )
         next_step_profile = False
-
+        
         for epoch in range(self.config.trainer.total_epochs):
             for batch_dict in self.train_dataloader:
                 metrics = {}
@@ -1184,8 +1191,9 @@ class RayPPOTrainer:
                         old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
                         entropys = old_log_prob.batch["entropys"]
                         response_masks = batch.batch["response_mask"]
-                        loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
-                        entropy_agg = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)
+                        #loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
+                        loss_agg_mode = "token-mean"
+                        entropy_agg = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)#, lamda=lambda_yn)
                         old_log_prob_metrics = {"actor/entropy": entropy_agg.detach().item()}
                         metrics.update(old_log_prob_metrics)
                         old_log_prob.batch.pop("entropys")

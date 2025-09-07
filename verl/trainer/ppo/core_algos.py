@@ -701,7 +701,7 @@ def compute_rewards(token_level_scores, old_log_prob, ref_log_prob, kl_ratio):
     return token_level_scores - kl * kl_ratio
 
 
-def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str):
+def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str, lamda_ours=None):
     """
     Aggregate the loss matrix into a scalar.
 
@@ -716,7 +716,8 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         loss: `a scalar torch.Tensor`
             aggregated loss
     """
-    if loss_agg_mode == "token-mean":
+    # import pdb;pdb.set_trace()
+    if loss_agg_mode == "token-mean" or lambda_ours==None:
         loss = verl_F.masked_mean(loss_mat, loss_mask)
     elif loss_agg_mode == "seq-mean-token-sum":
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1)  # token-sum
@@ -771,8 +772,8 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         reducer = 1/30
         normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
         new_loss_mat = loss_mat * loss_mask
-        lamda = 2
-        weighted = normalized.pow(lamda)
+        torch.clip(lambda_ours,-3,3)
+        weighted = normalized.pow(lamda_ours)
         sample_size = loss_mask.shape[0]
         f = torch.softmax(weighted, dim=0) * sample_size
         final_loss_for_each_token = f * new_loss_mat.sum(dim=-1)
@@ -870,6 +871,7 @@ def compute_policy_loss_vanilla(
     response_mask: torch.Tensor,
     loss_agg_mode: str = "token-mean",
     config: Optional[DictConfig | AlgoConfig] = None,
+    lambda_ours=None
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Compute the clipped policy objective and related metrics for PPO.
@@ -898,7 +900,7 @@ def compute_policy_loss_vanilla(
     clip_ratio_c = config.get(  # Lower bound of the ratio for dual-clip PPO. See https://arxiv.org/pdf/1912.09729.
         "clip_ratio_c", 3.0
     )
-
+    # import pdb;pdb.set_trace()
     cliprange = clip_ratio
     cliprange_low = clip_ratio_low
     cliprange_high = clip_ratio_high
@@ -934,8 +936,8 @@ def compute_policy_loss_vanilla(
     )
 
     pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
-    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
-
+    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, lambda_ours)
+    # import pdb;pdb.set_trace()
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
 
 

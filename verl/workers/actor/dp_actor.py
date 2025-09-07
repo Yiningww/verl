@@ -62,8 +62,10 @@ class DataParallelPPOActor(BasePPOActor):
         """When optimizer is None, it is Reference Policy"""
         super().__init__(config)
         self.actor_module = actor_module
+        # import pdb;pdb.set_trace()
         self.actor_optimizer = actor_optimizer
         role = "Ref" if actor_optimizer is None else "Actor"
+        # import pdb; pdb.set_trace()
 
         self.use_remove_padding = self.config.get("use_remove_padding", False)
         if torch.distributed.get_rank() == 0:
@@ -95,6 +97,7 @@ class DataParallelPPOActor(BasePPOActor):
             entropy: # (bs, response_len)
             log_probs: # (bs, response_len)
         """
+        # import pdb;pdb.set_trace()
         response_length = micro_batch["responses"].size(-1)
         multi_modal_inputs = {}
         if "multi_modal_inputs" in micro_batch.keys():
@@ -173,7 +176,6 @@ class DataParallelPPOActor(BasePPOActor):
                 if self.use_fused_kernels:
                     extra_args["temperature"] = temperature
                     extra_args["return_dict"] = True
-
                 output = self.actor_module(
                     input_ids=input_ids_rmpad,
                     attention_mask=None,
@@ -280,6 +282,7 @@ class DataParallelPPOActor(BasePPOActor):
             return entropy, log_probs
 
     def _optimizer_step(self):
+        # import pdb;pdb.set_trace()
         assert self.config.grad_clip is not None
 
         if isinstance(self.actor_module, FSDP):
@@ -316,6 +319,7 @@ class DataParallelPPOActor(BasePPOActor):
         Returns:
             torch.Tensor: the log_prob tensor
         """
+        # import pdb;pdb.set_trace()
         # set to eval
         self.actor_module.eval()
 
@@ -362,6 +366,7 @@ class DataParallelPPOActor(BasePPOActor):
     @GPUMemoryLogger(role="dp actor", logger=logger)
     def update_policy(self, data: DataProto):
         # make sure we are in training mode
+        # import pdb;pdb.set_trace()
         self.actor_module.train()
 
         temperature = data.meta_info["temperature"]  # temperature must be in the data.meta_info to avoid silent error
@@ -391,6 +396,7 @@ class DataParallelPPOActor(BasePPOActor):
 
         metrics = {}
         for _ in range(self.config.ppo_epochs):
+
             for batch_idx, mini_batch in enumerate(mini_batches):
                 if self.config.use_dynamic_bsz:
                     max_token_len = self.config.ppo_max_token_len_per_gpu * self.ulysses_sequence_parallel_size
@@ -402,7 +408,10 @@ class DataParallelPPOActor(BasePPOActor):
                     micro_batches = mini_batch.split(self.config.ppo_micro_batch_size_per_gpu)
 
                 self.actor_optimizer.zero_grad()
-
+                # import pdb;pdb.set_trace()
+                lambda_try = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32, device="cuda"))
+                lambda_opt = torch.optim.Adam([{"params": [lambda_try], "lr": 1e-3, "weight_decay": 0.0}])
+                lambda_opt.zero_grad(set_to_none=True)
                 for micro_batch in micro_batches:
                     micro_batch = micro_batch.to(get_device_id())
                     micro_batch_metrics = {}
@@ -436,6 +445,7 @@ class DataParallelPPOActor(BasePPOActor):
                     # gpg -> verl.trainer.ppo.core_algos.compute_policy_loss_gpg
                     # clip_cov -> verl.trainer.ppo.core_algos.compute_policy_loss_clip_cov
                     policy_loss_fn = get_policy_loss_fn(loss_mode)
+
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = policy_loss_fn(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
@@ -443,7 +453,15 @@ class DataParallelPPOActor(BasePPOActor):
                         response_mask=response_mask,
                         loss_agg_mode=loss_agg_mode,
                         config=self.config,
+                        lambda_ours=lambda_try
                     )
+                    # assert not torch.isnan(pg_loss).any(), "pg_loss is NaN!"
+                    pg = pg_loss
+                    # pg.backward()            # 反向传播到 lambda_try
+                    # print("lambda grad:", lambda_try.grad)  # 可选：检查梯度
+                    
+
+                    import pdb;pdb.set_trace()
 
                     if entropy_coeff != 0:
                         entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
@@ -471,6 +489,8 @@ class DataParallelPPOActor(BasePPOActor):
                     else:
                         loss = policy_loss * loss_scale_factor
                     loss.backward()
+                    
+                    
 
                     micro_batch_metrics.update(
                         {
@@ -483,6 +503,10 @@ class DataParallelPPOActor(BasePPOActor):
                     append_to_dict(metrics, micro_batch_metrics)
 
                 grad_norm = self._optimizer_step()
+                import pdb;pdb.set_trace()
+                lambda_opt.step()
+                # save lambda_try to a file
+                import pdb;pdb.set_trace()
                 mini_batch_metrics = {"actor/grad_norm": grad_norm.detach().item()}
                 append_to_dict(metrics, mini_batch_metrics)
         self.actor_optimizer.zero_grad()
