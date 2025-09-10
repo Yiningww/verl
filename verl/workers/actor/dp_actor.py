@@ -419,7 +419,7 @@ class DataParallelPPOActor(BasePPOActor):
                 #     val = float(json.loads(last_line)["lambda_try"])
 
                 default_val = 0.0  # 或者用已有参数的当前值当默认
-                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_15_sgd.jsonl"
+                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_9_sgd.jsonl"
 
                 try:
                     with open(path, "r", encoding="utf-8") as f:
@@ -435,7 +435,7 @@ class DataParallelPPOActor(BasePPOActor):
                 lambda_try = torch.nn.Parameter(
                     torch.tensor([val], dtype=torch.float32, device="cuda")
                 )
-                print(f"now val is:{val}")
+                # print(f"now val is:{val}")
                 # import pdb;pdb.set_trace()
                 # lambda_try = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32, device="cuda"))
                 lambda_opt = torch.optim.SGD([{"params": [lambda_try], "lr": 1e-2, "weight_decay": 0.0}])
@@ -518,7 +518,7 @@ class DataParallelPPOActor(BasePPOActor):
                         loss = policy_loss * loss_scale_factor
                     # print("micro_batch", micro_batch_no, "mini_batch", mini_batch_no, "loss before backward:", loss.item())
                     loss.backward()
-                    print("λ.grad =", lambda_try.grad)               # 看是不是恒等于 1（或常数）
+                    # print("λ.grad =", lambda_try.grad)               # 看是不是恒等于 1（或常数）
                     # print("micro_batch", micro_batch_no, "mini_batch", mini_batch_no, "loss:", loss.item())
                     
                     # import pdb;pdb.set_trace()
@@ -547,7 +547,7 @@ class DataParallelPPOActor(BasePPOActor):
                 if torch.distributed.get_rank() == 0:
                     update_num += 1
                     val = float(lambda_try.detach().item())
-                    path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_15_sgd.jsonl"
+                    path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_9_sgd.jsonl"
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                     with open(path, "a", encoding="utf-8") as f:
                         json.dump({"update num": update_num, "lambda_try": val}, f)
