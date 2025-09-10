@@ -19,6 +19,8 @@ Single Process Actor
 
 import logging
 import os
+import json
+from collections import deque
 
 import torch
 from torch import nn
@@ -395,9 +397,11 @@ class DataParallelPPOActor(BasePPOActor):
         on_policy = len(mini_batches) == 1 and self.config.ppo_epochs == 1
 
         metrics = {}
+        update_num = 0
         for _ in range(self.config.ppo_epochs):
-
+            mini_batch_no = 0
             for batch_idx, mini_batch in enumerate(mini_batches):
+                mini_batch_no += 1
                 if self.config.use_dynamic_bsz:
                     max_token_len = self.config.ppo_max_token_len_per_gpu * self.ulysses_sequence_parallel_size
                     micro_batches, _ = prepare_dynamic_batch(mini_batch, max_token_len=max_token_len)
@@ -409,10 +413,36 @@ class DataParallelPPOActor(BasePPOActor):
 
                 self.actor_optimizer.zero_grad()
                 # import pdb;pdb.set_trace()
-                lambda_try = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32, device="cuda"))
-                lambda_opt = torch.optim.Adam([{"params": [lambda_try], "lr": 1e-3, "weight_decay": 0.0}])
+
+                # with open("/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_ours.jsonl") as f:
+                #     last_line = deque(f, maxlen=1)[0].strip()
+                #     val = float(json.loads(last_line)["lambda_try"])
+
+                default_val = 0.0  # 或者用已有参数的当前值当默认
+                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_15_sgd.jsonl"
+
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        last = ""
+                        for line in f:                 # 顺序读，始终保留最后一条非空行
+                            s = line.strip()
+                            if s:
+                                last = s
+                    val = float(json.loads(last)["lambda_try"]) if last else default_val
+                except Exception:
+                    val = default_val
+                # print(f"current val is: {val}")
+                lambda_try = torch.nn.Parameter(
+                    torch.tensor([val], dtype=torch.float32, device="cuda")
+                )
+                print(f"now val is:{val}")
+                # import pdb;pdb.set_trace()
+                # lambda_try = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32, device="cuda"))
+                lambda_opt = torch.optim.SGD([{"params": [lambda_try], "lr": 1e-2, "weight_decay": 0.0}])
                 lambda_opt.zero_grad(set_to_none=True)
+                micro_batch_no = 0
                 for micro_batch in micro_batches:
+                    micro_batch_no += 1
                     micro_batch = micro_batch.to(get_device_id())
                     micro_batch_metrics = {}
                     model_inputs = {**micro_batch.batch, **micro_batch.non_tensor_batch}
@@ -456,12 +486,10 @@ class DataParallelPPOActor(BasePPOActor):
                         lambda_ours=lambda_try
                     )
                     # assert not torch.isnan(pg_loss).any(), "pg_loss is NaN!"
-                    pg = pg_loss
-                    # pg.backward()            # 反向传播到 lambda_try
                     # print("lambda grad:", lambda_try.grad)  # 可选：检查梯度
                     
 
-                    import pdb;pdb.set_trace()
+                    # import pdb;pdb.set_trace()
 
                     if entropy_coeff != 0:
                         entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
@@ -488,9 +516,12 @@ class DataParallelPPOActor(BasePPOActor):
                         loss = policy_loss * loss_scale_factor
                     else:
                         loss = policy_loss * loss_scale_factor
+                    # print("micro_batch", micro_batch_no, "mini_batch", mini_batch_no, "loss before backward:", loss.item())
                     loss.backward()
+                    print("λ.grad =", lambda_try.grad)               # 看是不是恒等于 1（或常数）
+                    # print("micro_batch", micro_batch_no, "mini_batch", mini_batch_no, "loss:", loss.item())
                     
-                    
+                    # import pdb;pdb.set_trace()
 
                     micro_batch_metrics.update(
                         {
@@ -501,13 +532,31 @@ class DataParallelPPOActor(BasePPOActor):
                         }
                     )
                     append_to_dict(metrics, micro_batch_metrics)
-
+                # print(f"BEFORE optimizer step: grad:{lambda_try.grad.detach().item()}, value:{lambda_try.detach().item()}")
                 grad_norm = self._optimizer_step()
-                import pdb;pdb.set_trace()
+                # print(f"BEFORE lambda_opt step: grad:{lambda_try.grad.detach().item()}, value:{lambda_try.detach().item()}")
+
+                # import pdb;pdb.set_trace()
+                # TODO, update lambda by ourselves?
                 lambda_opt.step()
+                # print(f"After lambda_opt step: grad:{lambda_try.grad.detach().item()}, value:{lambda_try.detach().item()}")
+                # import pdb;pdb.set_trace()
+                # print("mini_batch", mini_batch_no, "lambda_try", lambda_try.detach().item())
                 # save lambda_try to a file
-                import pdb;pdb.set_trace()
-                mini_batch_metrics = {"actor/grad_norm": grad_norm.detach().item()}
+                
+                if torch.distributed.get_rank() == 0:
+                    update_num += 1
+                    val = float(lambda_try.detach().item())
+                    path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_15_sgd.jsonl"
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "a", encoding="utf-8") as f:
+                        json.dump({"update num": update_num, "lambda_try": val}, f)
+                        f.write("\n")  # 换行，下一条新起一行
+                        f.flush()      # 可选：确保及时落盘
+                        os.fsync(f.fileno())
+                
+                # import pdb;pdb.set_trace()
+                mini_batch_metrics = {"actor/grad_norm": grad_norm.detach().item(), "actor/lambda_ours": lambda_try.detach().item()}
                 append_to_dict(metrics, mini_batch_metrics)
         self.actor_optimizer.zero_grad()
         return metrics

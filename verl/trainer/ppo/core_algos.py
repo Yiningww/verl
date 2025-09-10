@@ -701,7 +701,7 @@ def compute_rewards(token_level_scores, old_log_prob, ref_log_prob, kl_ratio):
     return token_level_scores - kl * kl_ratio
 
 
-def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str, lamda_ours=None):
+def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str, lambda_ours=None):
     """
     Aggregate the loss matrix into a scalar.
 
@@ -769,16 +769,18 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
-        reducer = 1/30
+        sigma = sigma.clamp_min(1e-8)
+        reducer = 1/15
         normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
         new_loss_mat = loss_mat * loss_mask
-        torch.clip(lambda_ours,-3,3)
-        weighted = normalized.pow(lamda_ours)
+        lambda_ours = torch.clamp(lambda_ours, -3.0, 3.0)
+        weighted = normalized.pow(lambda_ours)
         sample_size = loss_mask.shape[0]
         f = torch.softmax(weighted, dim=0) * sample_size
         final_loss_for_each_token = f * new_loss_mat.sum(dim=-1)
         sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample)
         loss = torch.sum(final_loss_for_each_token) /sum_of_token_len_of_all_samples
+        # import pdb;pdb.set_trace()
 
         
     else:
@@ -936,8 +938,10 @@ def compute_policy_loss_vanilla(
     )
 
     pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
-    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, lambda_ours)
+    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, lambda_ours=lambda_ours)
     # import pdb;pdb.set_trace()
+    # pg_loss = lambda_ours * pg_loss
+     
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
 
 
