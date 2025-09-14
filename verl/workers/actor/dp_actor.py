@@ -419,7 +419,7 @@ class DataParallelPPOActor(BasePPOActor):
                 #     val = float(json.loads(last_line)["lambda_try"])
 
                 default_val = 0.0  # 或者用已有参数的当前值当默认
-                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_9_sgd.jsonl"
+                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_3b_base_yn4_reducer_1_over_9_sgd.jsonl"
 
                 try:
                     with open(path, "r", encoding="utf-8") as f:
@@ -547,7 +547,6 @@ class DataParallelPPOActor(BasePPOActor):
                 if torch.distributed.get_rank() == 0:
                     update_num += 1
                     val = float(lambda_try.detach().item())
-                    path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_1.5b_base_yn4_reducer_1_over_9_sgd.jsonl"
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                     with open(path, "a", encoding="utf-8") as f:
                         json.dump({"update num": update_num, "lambda_try": val}, f)
