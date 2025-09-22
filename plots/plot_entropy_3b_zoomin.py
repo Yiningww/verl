@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 # ===== 可调参数 =====
 TITLE = "Entropy vs Step (Zoom 80–160)"
-OUTPUT = "entropy_zoom_80_160.png"
-FIGSIZE = (5.6, 3.4)
+OUTPUT = "3b-entropy.pdf"
+FIGSIZE = (4, 2.5)
 DPI = 220
 SMOOTH_WINDOW = 1         # 移动平均窗口(奇数); 1 表示不平滑
 AMP = 8.0                 # 放大 (ours - token_mean) 的系数
@@ -140,11 +140,12 @@ labels = [ln.get_label() for ln in lines]
 # ax1.legend(lines, labels, frameon=False, ncol=3,
 #            bbox_to_anchor=(0.0, 1.02, 1.0, 0.2), loc="lower left",
 #            mode="expand", borderaxespad=0.0, handlelength=2.0)
-ax1.legend(lines, labels, frameon=False, ncol=1, loc="upper right")
+ax1.legend(lines, labels, ncol=1, loc="upper right")
 
 
 plt.tight_layout()
-plt.savefig(OUTPUT, dpi=DPI, bbox_inches="tight")
+# plt.savefig(OUTPUT, dpi=DPI, bbox_inches="tight")
+plt.savefig("3b-entropy.pdf")
 print(f"Saved: {OUTPUT}")
 
 
