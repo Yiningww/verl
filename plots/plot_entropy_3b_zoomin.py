@@ -140,7 +140,7 @@ labels = [ln.get_label() for ln in lines]
 # ax1.legend(lines, labels, frameon=False, ncol=3,
 #            bbox_to_anchor=(0.0, 1.02, 1.0, 0.2), loc="lower left",
 #            mode="expand", borderaxespad=0.0, handlelength=2.0)
-ax1.legend(lines, labels, ncol=1, loc="upper right")
+ax1.legend(lines, labels, ncol=1, frameon=False, loc="upper right")
 
 
 plt.tight_layout()
