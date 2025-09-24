@@ -414,12 +414,8 @@ class DataParallelPPOActor(BasePPOActor):
                 self.actor_optimizer.zero_grad()
                 # import pdb;pdb.set_trace()
 
-                # with open("/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_ours.jsonl") as f:
-                #     last_line = deque(f, maxlen=1)[0].strip()
-                #     val = float(json.loads(last_line)["lambda_try"])
-
                 default_val = 0.0  # 或者用已有参数的当前值当默认
-                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_3b_base_yn4_reducer_1_over_9_sgd.jsonl"
+                path = "/root/paddlejob/workspace/env_run/jinman/verl/examples/grpo_trainer/lambda_7b_base_yn4_reducer_1_over_9_sgd_lr_1e-1.jsonl"
 
                 try:
                     with open(path, "r", encoding="utf-8") as f:
@@ -438,7 +434,7 @@ class DataParallelPPOActor(BasePPOActor):
                 # print(f"now val is:{val}")
                 # import pdb;pdb.set_trace()
                 # lambda_try = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32, device="cuda"))
-                lambda_opt = torch.optim.SGD([{"params": [lambda_try], "lr": 1e-2, "weight_decay": 0.0}])
+                lambda_opt = torch.optim.SGD([{"params": [lambda_try], "lr": 1e-1, "weight_decay": 0.0}])
                 lambda_opt.zero_grad(set_to_none=True)
                 micro_batch_no = 0
                 for micro_batch in micro_batches:

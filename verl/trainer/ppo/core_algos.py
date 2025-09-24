@@ -732,19 +732,19 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         # throughout training to well-replicate the DrGRPO paper.
         # TODO: Perhaps add user-defined normalizer argument to
         # agg_loss to ensure divisor stays constant throughout.
-    elif loss_agg_mode == "yining-weighted":
+    elif loss_agg_mode == "weighted":
         # loss_mat: torch.tensor([[1,2,3,4,5], [5,4,3,2,1], [1,2,3,4,5]])
         # loss_mask:torch.tensor([[1,1,0,0,0], [1,1,1,0,0], [1,1,1,1,1]]
         # torch.sum(loss_mask, dim=-1): ([2,3,5])
         # torch.sum(loss_mat * loss_mask, dim=-1): tensor([ 3, 12, 15])
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / torch.sum(loss_mask)
         loss = torch.mean(seq_losses)
-    elif loss_agg_mode == "yining-weighted2":
+    elif loss_agg_mode == "weighted2":
         largest_value = torch.max(torch.sum(loss_mask, dim=-1))
         # largest_value = loss_mask.sum(dim=1).max(dim=0).values.item()
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) * torch.sum(loss_mask, dim=-1) / math.sqrt(largest_value)
         loss = torch.sum(seq_losses)
-    elif loss_agg_mode == "yining-weighted3":
+    elif loss_agg_mode == "weighted3":
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
@@ -754,7 +754,7 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         normalized_loss_for_each_token = normalized * new_loss_mat.sum(dim=-1)
         sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample) 
         loss = torch.sum(normalized_loss_for_each_token) /sum_of_token_len_of_all_samples
-    elif loss_agg_mode == "yining-weighted3-reducer-1-over-3":
+    elif loss_agg_mode == "weighted3-reducer-1-over-3":
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
@@ -765,12 +765,12 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         clipped_normalized_loss_for_each_token = clipped_normalized * new_loss_mat.sum(dim=-1)
         sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample) 
         loss = torch.sum(clipped_normalized_loss_for_each_token) /sum_of_token_len_of_all_samples
-    elif loss_agg_mode == "yining-weighted4":
+    elif loss_agg_mode == "lambda-grpo":
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
         sigma = sigma.clamp_min(1e-8)
-        reducer = 1/15
+        reducer = 1/9
         normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
         new_loss_mat = loss_mat * loss_mask
         lambda_ours = torch.clamp(lambda_ours, -3.0, 3.0)
