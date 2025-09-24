@@ -340,8 +340,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 config=actor_model_config,
                 trust_remote_code=trust_remote_code,
             )
-            # if role == "actor":
-            #     actor_module.register_parameter("lambda_yn", torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32), requires_grad=True))
+
 
                 
 

@@ -35,7 +35,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 MASTER_PORT=29673 python3 -m verl.trainer.main_ppo 
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
-    trainer.project_name='yn-iclr-qwen2.5_1.5b_base' \
+    trainer.project_name='iclr-qwen2.5_1.5b_base' \
     trainer.experiment_name='grpo-seq-mean-token-mean' \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
