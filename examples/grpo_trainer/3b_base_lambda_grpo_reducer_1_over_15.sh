@@ -1,7 +1,7 @@
 # Tested successfully on the hiyouga/verl:ngc-th2.6.0-cu126-vllm0.8.4-flashinfer0.2.2-cxx11abi0 image.
 # It outperforms the Qwen2 7B base model by two percentage points on the test set of GSM8K.
 # MASTER_PORT=29673 
-# reducer = 1/9, lambda_try lr = 1e-2, optimizer = SGD
+# reducer = 1/15, lambda_try lr = 1e-2, optimizer = SGD
 set -x
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
@@ -21,7 +21,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_coef=0.0001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.loss_agg_mode=yining-weighted4 \
+    actor_rollout_ref.actor.loss_agg_mode=lambda-grpo \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=False \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
@@ -36,7 +36,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name='yn-iclr-qwen2.5_3b_base' \
-    trainer.experiment_name='yn-weighted4-tuned-lambda-reducer-1-over-9' \
+    trainer.experiment_name='yn-weighted4-tuned-lambda-reducer-1-over-15' \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=40 \
