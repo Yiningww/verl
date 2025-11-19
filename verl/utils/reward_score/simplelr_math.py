@@ -33,6 +33,7 @@ try:
     from math_verify.parser import ExprExtractionConfig, LatexExtractionConfig
 except ImportError:
     print("To use Math-Verify, please install it first by running `pip install math-verify`.")
+    # TimeoutException = Exception # Newly added
 
 
 
@@ -79,7 +80,7 @@ format_penalty_value = float(os.environ.get('FORMAT_PENALTY_VALUE', "-1"))
 # print(f"Reward function type: {reward_function_type}")
 print(f"Format penalty value: {format_penalty_value}")
 
-def compute_score(data_source, solution_str, ground_truth, method='strict', extra_info = None, timeout_score: float = 0):
+def compute_score(data_source, solution_str, ground_truth, method='strict', extra_info = None, timeout_score: float = -1.0):
     """The scoring function for GSM8k.
 
     Reference: Trung, Luong, et al. "Reft: Reasoning with reinforced fine-tuning." Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers). 2024.
@@ -91,27 +92,29 @@ def compute_score(data_source, solution_str, ground_truth, method='strict', extr
         format_score: the score for the format
         score: the score for the correct answer
     """
-    ground_truth_boxed = "\\boxed{" + ground_truth + "}"
-    extract_answer, is_boxed_matched = extract_solution(solution_str=solution_str)
-    # correct = qwen_math_equal_subprocess(prediction=extract_answer, reference=ground_truth)
-    verify_func = math_metric(
-        gold_extraction_target=(LatexExtractionConfig(),),
-        pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
-    )
-    ret_score = 0.0
-
     try:
-        correct, _ = verify_func([ground_truth_boxed], [solution_str])
+        ground_truth_boxed = "\\boxed{" + ground_truth + "}"
+        extract_answer, is_boxed_matched = extract_solution(solution_str=solution_str)
+        # correct = qwen_math_equal_subprocess(prediction=extract_answer, reference=ground_truth)
+
+        verify_func = math_metric(
+            gold_extraction_target=(LatexExtractionConfig(),),
+            pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
+        )
+        ret_score = 0.0
+        correct, _ = verify_func([ground_truth_boxed], [extract_answer])
         if correct:
             ret_score = 1.0
         else:
             ret_score = -0.5
         if not is_boxed_matched:
             ret_score = format_penalty_value
-    except Exception:
-        pass
+
     except TimeoutException:
         ret_score = timeout_score
+    except Exception:
+        ret_score = timeout_score
+    
 
     return ret_score
     
@@ -140,20 +143,30 @@ Two circles, one of radius inches, the other of radius inches, are tangent at po
 There's a rectangle with one side being inches 50;"""
     
     model_output= re.sub(r'^.*?<\|im_start\|>assistant', '<|im_start|>assistant', solution_str2, flags=re.DOTALL,count = 1)
+    print(model_output)
     extract_boxed_answer = extract_last_boxed(model_output)
     print(f"extract_boxed_answer: {extract_boxed_answer}")
     # print(model_output)
     print(f"extract solution: {extract_solution(solution_str)}")
     extract_answer, is_boxed_matched = extract_solution(solution_str2)
+    print(is_boxed_matched)
     ground_truth = "50"
     ground_truth_boxed = "\\boxed{" + ground_truth + "}"
 
     # correct = qwen_math_equal_subprocess(prediction=extract_answer, reference=ground_truth)
+
     verify_func = math_metric(
         gold_extraction_target=(LatexExtractionConfig(),),
         pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
     )
-    ret_score, _ = verify_func([ground_truth_boxed], [solution_str2])
+    correct, _ = verify_func([ground_truth_boxed], [extract_answer])
+    if correct:
+            ret_score = 1.0
+    else:
+        ret_score = -0.5
+    if not is_boxed_matched:
+        ret_score = format_penalty_value
 
     print(f"extract answer: {extract_answer}, is_boxed_matched: {is_boxed_matched}")
-    print(f"correct: {ret_score}")
+    print(f"correct: {correct}")
+    print(ret_score)
