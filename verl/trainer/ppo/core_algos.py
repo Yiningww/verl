@@ -748,7 +748,7 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         token_len_for_each_sample = loss_mask.sum(dim=-1).float()
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
-        reducer = 1/30
+        reducer = 1/9
         normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
         new_loss_mat = loss_mat * loss_mask
         normalized_loss_for_each_token = normalized * new_loss_mat.sum(dim=-1)
@@ -770,7 +770,7 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         mu = torch.mean(token_len_for_each_sample)
         sigma = torch.std(token_len_for_each_sample)
         sigma = sigma.clamp_min(1e-8)
-        reducer = 1/9
+        reducer = 1/3
         normalized = (token_len_for_each_sample - mu)/sigma * reducer + 1
         new_loss_mat = loss_mat * loss_mask
         lambda_ours = torch.clamp(lambda_ours, -3.0, 3.0)
@@ -781,6 +781,11 @@ def agg_loss(loss_mat: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str
         sum_of_token_len_of_all_samples = torch.sum(token_len_for_each_sample)
         loss = torch.sum(final_loss_for_each_token) /sum_of_token_len_of_all_samples
         # import pdb;pdb.set_trace()
+    elif loss_agg_mode == "dr-grpo":
+        token_len_for_each_sample = loss_mask.sum(dim=-1).float()
+        mu = torch.mean(token_len_for_each_sample)
+        dapo_loss = verl_F.masked_mean(loss_mat, loss_mask) # 24/(3*3) 长度和
+        loss = dapo_loss*mu
 
         
     else:

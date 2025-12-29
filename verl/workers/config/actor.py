@@ -137,7 +137,8 @@ class ActorConfig(BaseConfig):
             "weighted2",
             "weighted3",
             "weighted3-reducer-1-over-3",
-            "lambda-grpo"
+            "lambda-grpo",
+            "dr-grpo"
         ]
         if self.loss_agg_mode not in valid_loss_agg_modes:
             raise ValueError(f"Invalid loss_agg_mode: {self.loss_agg_mode}")
